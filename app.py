@@ -30,6 +30,12 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+@app.before_request
+def before_first_request():
+    """Initialize database before first request"""
+    if not os.path.exists(DATABASE):
+        init_db()
+
 @app.route('/')
 def index():
     """Render the main page"""
