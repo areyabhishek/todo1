@@ -11,7 +11,7 @@ class TodoApp {
     }
 
     bindEvents() {
-        // Form submission
+        // Form submission (handles Enter key automatically)
         document.getElementById('todoForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.addTodo();
@@ -22,13 +22,6 @@ class TodoApp {
             btn.addEventListener('click', (e) => {
                 this.setFilter(e.target.dataset.filter);
             });
-        });
-
-        // Enter key in input
-        document.getElementById('todoInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.addTodo();
-            }
         });
     }
 
@@ -129,8 +122,16 @@ class TodoApp {
         });
     }
 
-    async deleteTodo(id) {
-        if (!confirm('Are you sure you want to delete this todo?')) return;
+    async deleteTodo(id, event) {
+        const todoItem = event.target.closest('.todo-item');
+
+        // Add slide-out animation
+        todoItem.style.transition = 'all 0.3s ease';
+        todoItem.style.opacity = '0';
+        todoItem.style.transform = 'translateX(100%)';
+
+        // Wait for animation to complete
+        await new Promise(resolve => setTimeout(resolve, 300));
 
         try {
             const response = await fetch(`/api/todos/${id}`, {
@@ -142,9 +143,15 @@ class TodoApp {
                 this.renderTodos();
                 this.updateStats();
             } else {
+                // Restore item if delete failed
+                todoItem.style.opacity = '1';
+                todoItem.style.transform = 'translateX(0)';
                 this.showError('Failed to delete todo');
             }
         } catch (error) {
+            // Restore item if delete failed
+            todoItem.style.opacity = '1';
+            todoItem.style.transform = 'translateX(0)';
             this.showError('Error deleting todo');
             console.error('Error:', error);
         }
@@ -252,7 +259,7 @@ class TodoApp {
                 </div>
                 <div class="todo-text" onclick="todoApp.enableInlineEdit(${todo.id})">${this.escapeHtml(todo.task)}</div>
                 <div class="todo-actions">
-                    <button class="todo-btn delete-btn" onclick="todoApp.deleteTodo(${todo.id})" title="Delete">
+                    <button class="todo-btn delete-btn" onclick="todoApp.deleteTodo(${todo.id}, event)" title="Delete">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
