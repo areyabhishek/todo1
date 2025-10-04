@@ -2,8 +2,20 @@ from flask import Flask, render_template, request, jsonify
 import sqlite3
 import os
 from datetime import datetime
+from flask_mail import Mail, Message
 
 app = Flask(__name__)
+
+# Email configuration
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', os.getenv('MAIL_USERNAME'))
+app.config['NOTIFICATION_EMAIL'] = os.getenv('NOTIFICATION_EMAIL')
+
+mail = Mail(app)
 
 # Database setup
 DATABASE = 'todos.db'
@@ -30,6 +42,28 @@ def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
+
+def send_notification_email(action, task_name, details=''):
+    """Send email notification for todo updates"""
+    if not app.config['NOTIFICATION_EMAIL'] or not app.config['MAIL_USERNAME']:
+        return  # Email not configured
+
+    try:
+        subject = f'Todo Update: {action}'
+        body = f"""
+        Task: {task_name}
+        Action: {action}
+        {details}
+
+        ---
+        Sent from your Todo List App
+        """
+
+        msg = Message(subject, recipients=[app.config['NOTIFICATION_EMAIL']])
+        msg.body = body
+        mail.send(msg)
+    except Exception as e:
+        print(f"Failed to send email: {e}")
 
 @app.before_request
 def before_first_request():
@@ -95,10 +129,17 @@ def update_todo(todo_id):
 
     conn = get_db_connection()
 
+    # Get current todo for notification
+    current_todo = conn.execute('SELECT * FROM todos WHERE id = ?', (todo_id,)).fetchone()
+
     if 'completed' in data:
         # Toggle completion status
         conn.execute('UPDATE todos SET completed = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
                     (data['completed'], todo_id))
+        if data['completed']:
+            send_notification_email('Task Completed', current_todo['task'])
+        else:
+            send_notification_email('Task Reopened', current_todo['task'])
     elif 'task' in data:
         # Update task text
         task = data['task'].strip()
@@ -107,10 +148,12 @@ def update_todo(todo_id):
             return jsonify({'error': 'Task cannot be empty'}), 400
         conn.execute('UPDATE todos SET task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
                     (task, todo_id))
+        send_notification_email('Task Updated', task, f'Previous: {current_todo["task"]}')
     elif 'deadline' in data:
         # Update deadline
         conn.execute('UPDATE todos SET deadline = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
                     (data['deadline'], todo_id))
+        send_notification_email('Deadline Updated', current_todo['task'], f'New deadline: {data["deadline"]}')
 
     conn.commit()
 
