@@ -82,7 +82,7 @@ class TodoApp {
         }
     }
 
-    async toggleTodo(id) {
+    async toggleTodo(id, event) {
         const todo = this.todos.find(t => t.id === id);
         if (!todo) return;
 
@@ -99,6 +99,12 @@ class TodoApp {
                 const updatedTodo = await response.json();
                 const index = this.todos.findIndex(t => t.id === id);
                 this.todos[index] = updatedTodo;
+
+                // Show confetti when marking as complete
+                if (updatedTodo.completed && event) {
+                    this.showConfetti(event);
+                }
+
                 this.renderTodos();
                 this.updateStats();
             } else {
@@ -108,6 +114,19 @@ class TodoApp {
             this.showError('Error updating todo');
             console.error('Error:', error);
         }
+    }
+
+    showConfetti(event) {
+        const rect = event.target.getBoundingClientRect();
+        const x = (rect.left + rect.width / 2) / window.innerWidth;
+        const y = (rect.top + rect.height / 2) / window.innerHeight;
+
+        confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { x, y },
+            colors: ['#667eea', '#764ba2', '#ffd700', '#ff6b6b', '#4ecdc4']
+        });
     }
 
     async deleteTodo(id) {
@@ -131,35 +150,61 @@ class TodoApp {
         }
     }
 
-    async editTodo(id) {
+    enableInlineEdit(id) {
         const todo = this.todos.find(t => t.id === id);
         if (!todo) return;
 
-        const newTask = prompt('Edit task:', todo.task);
-        if (newTask === null || newTask.trim() === '') return;
+        const todoItem = document.querySelector(`[data-id="${id}"]`);
+        const todoText = todoItem.querySelector('.todo-text');
 
-        try {
-            const response = await fetch(`/api/todos/${id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ task: newTask.trim() })
-            });
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'todo-edit-input';
+        input.value = todo.task;
 
-            if (response.ok) {
-                const updatedTodo = await response.json();
-                const index = this.todos.findIndex(t => t.id === id);
-                this.todos[index] = updatedTodo;
+        const saveEdit = async () => {
+            const newTask = input.value.trim();
+            if (newTask === '' || newTask === todo.task) {
                 this.renderTodos();
-            } else {
-                const error = await response.json();
-                this.showError(error.error || 'Failed to update todo');
+                return;
             }
-        } catch (error) {
-            this.showError('Error updating todo');
-            console.error('Error:', error);
-        }
+
+            try {
+                const response = await fetch(`/api/todos/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ task: newTask })
+                });
+
+                if (response.ok) {
+                    const updatedTodo = await response.json();
+                    const index = this.todos.findIndex(t => t.id === id);
+                    this.todos[index] = updatedTodo;
+                    this.renderTodos();
+                } else {
+                    const error = await response.json();
+                    this.showError(error.error || 'Failed to update todo');
+                }
+            } catch (error) {
+                this.showError('Error updating todo');
+                console.error('Error:', error);
+            }
+        };
+
+        input.addEventListener('blur', saveEdit);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                saveEdit();
+            } else if (e.key === 'Escape') {
+                this.renderTodos();
+            }
+        });
+
+        todoText.replaceWith(input);
+        input.focus();
+        input.select();
     }
 
     setFilter(filter) {
@@ -202,14 +247,11 @@ class TodoApp {
 
         todoList.innerHTML = filteredTodos.map(todo => `
             <div class="todo-item ${todo.completed ? 'completed' : ''}" data-id="${todo.id}">
-                <div class="todo-checkbox ${todo.completed ? 'checked' : ''}" onclick="todoApp.toggleTodo(${todo.id})">
+                <div class="todo-checkbox ${todo.completed ? 'checked' : ''}" onclick="todoApp.toggleTodo(${todo.id}, event)">
                     ${todo.completed ? '<i class="fas fa-check"></i>' : ''}
                 </div>
-                <div class="todo-text">${this.escapeHtml(todo.task)}</div>
+                <div class="todo-text" onclick="todoApp.enableInlineEdit(${todo.id})">${this.escapeHtml(todo.task)}</div>
                 <div class="todo-actions">
-                    <button class="todo-btn edit-btn" onclick="todoApp.editTodo(${todo.id})" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
                     <button class="todo-btn delete-btn" onclick="todoApp.deleteTodo(${todo.id})" title="Delete">
                         <i class="fas fa-trash"></i>
                     </button>
