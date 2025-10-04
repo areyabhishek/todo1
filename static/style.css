@@ -20,6 +20,74 @@ body {
     min-height: 100vh;
     padding: 40px 20px;
     color: var(--text-primary);
+    position: relative;
+    overflow-x: hidden;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background: linear-gradient(
+        45deg,
+        #0a4d4e 0%,
+        #1a5f7a 25%,
+        #2d7d9a 50%,
+        #0f3854 75%,
+        #0a2e4a 100%
+    );
+    opacity: 0.03;
+    animation: aurora 15s ease-in-out infinite;
+}
+
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 200%;
+    height: 200%;
+    z-index: -1;
+    background:
+        radial-gradient(ellipse at 20% 30%, rgba(52, 211, 153, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 70%, rgba(96, 165, 250, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 40% 80%, rgba(167, 139, 250, 0.06) 0%, transparent 50%);
+    animation: auroraFlow 20s ease-in-out infinite;
+}
+
+@keyframes aurora {
+    0%, 100% {
+        transform: translateX(0) translateY(0) scale(1);
+        opacity: 0.03;
+    }
+    25% {
+        transform: translateX(-5%) translateY(-10%) scale(1.1);
+        opacity: 0.04;
+    }
+    50% {
+        transform: translateX(5%) translateY(5%) scale(1.05);
+        opacity: 0.05;
+    }
+    75% {
+        transform: translateX(-3%) translateY(10%) scale(1.08);
+        opacity: 0.04;
+    }
+}
+
+@keyframes auroraFlow {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+    33% {
+        transform: translate(-10%, -5%) rotate(5deg);
+    }
+    66% {
+        transform: translate(5%, -10%) rotate(-3deg);
+    }
 }
 
 .container {
@@ -75,26 +143,47 @@ header p {
 
 .deadline-select,
 .custom-date {
-    padding: 20px 24px;
+    padding: 20px 20px;
     border: 2px solid var(--border);
     border-radius: 12px;
-    font-size: 1rem;
+    font-size: 0.95rem;
     outline: none;
     transition: all 0.2s ease;
     background: white;
-    color: var(--text-primary);
+    color: var(--text-secondary);
     cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23666666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 20px center;
+    padding-right: 50px;
+    font-weight: 500;
+}
+
+.custom-date {
+    background-image: none;
+    padding-right: 20px;
+    color: var(--text-primary);
 }
 
 .deadline-select:hover,
 .custom-date:hover {
     border-color: var(--accent);
+    transform: translateY(-1px);
 }
 
 .deadline-select:focus,
 .custom-date:focus {
     border-color: var(--accent);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    color: var(--text-primary);
+}
+
+.deadline-select option {
+    padding: 12px;
+    font-size: 1rem;
 }
 
 #todoInput:focus {
