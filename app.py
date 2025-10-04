@@ -17,6 +17,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             task TEXT NOT NULL,
             completed BOOLEAN DEFAULT FALSE,
+            deadline TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -47,16 +48,17 @@ def get_todos():
     conn = get_db_connection()
     todos = conn.execute('SELECT * FROM todos ORDER BY created_at DESC').fetchall()
     conn.close()
-    
+
     todos_list = []
     for todo in todos:
         todos_list.append({
             'id': todo['id'],
             'task': todo['task'],
             'completed': bool(todo['completed']),
+            'deadline': todo['deadline'],
             'created_at': todo['created_at']
         })
-    
+
     return jsonify(todos_list)
 
 @app.route('/api/todos', methods=['POST'])
@@ -64,23 +66,25 @@ def add_todo():
     """Add a new todo"""
     data = request.get_json()
     task = data.get('task', '').strip()
-    
+    deadline = data.get('deadline')
+
     if not task:
         return jsonify({'error': 'Task cannot be empty'}), 400
-    
+
     conn = get_db_connection()
-    cursor = conn.execute('INSERT INTO todos (task) VALUES (?)', (task,))
+    cursor = conn.execute('INSERT INTO todos (task, deadline) VALUES (?, ?)', (task, deadline))
     todo_id = cursor.lastrowid
     conn.commit()
-    
+
     # Get the newly created todo
     new_todo = conn.execute('SELECT * FROM todos WHERE id = ?', (todo_id,)).fetchone()
     conn.close()
-    
+
     return jsonify({
         'id': new_todo['id'],
         'task': new_todo['task'],
         'completed': bool(new_todo['completed']),
+        'deadline': new_todo['deadline'],
         'created_at': new_todo['created_at']
     }), 201
 
@@ -88,12 +92,12 @@ def add_todo():
 def update_todo(todo_id):
     """Update a todo (toggle completion or update task)"""
     data = request.get_json()
-    
+
     conn = get_db_connection()
-    
+
     if 'completed' in data:
         # Toggle completion status
-        conn.execute('UPDATE todos SET completed = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
+        conn.execute('UPDATE todos SET completed = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
                     (data['completed'], todo_id))
     elif 'task' in data:
         # Update task text
@@ -101,22 +105,27 @@ def update_todo(todo_id):
         if not task:
             conn.close()
             return jsonify({'error': 'Task cannot be empty'}), 400
-        conn.execute('UPDATE todos SET task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
+        conn.execute('UPDATE todos SET task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
                     (task, todo_id))
-    
+    elif 'deadline' in data:
+        # Update deadline
+        conn.execute('UPDATE todos SET deadline = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                    (data['deadline'], todo_id))
+
     conn.commit()
-    
+
     # Get updated todo
     updated_todo = conn.execute('SELECT * FROM todos WHERE id = ?', (todo_id,)).fetchone()
     conn.close()
-    
+
     if updated_todo is None:
         return jsonify({'error': 'Todo not found'}), 404
-    
+
     return jsonify({
         'id': updated_todo['id'],
         'task': updated_todo['task'],
         'completed': bool(updated_todo['completed']),
+        'deadline': updated_todo['deadline'],
         'created_at': updated_todo['created_at']
     })
 

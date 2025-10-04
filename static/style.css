@@ -57,10 +57,12 @@ header p {
 .input-group {
     display: flex;
     gap: 12px;
+    flex-wrap: wrap;
 }
 
 #todoInput {
     flex: 1;
+    min-width: 200px;
     padding: 20px 24px;
     border: 2px solid var(--border);
     border-radius: 12px;
@@ -69,6 +71,30 @@ header p {
     transition: all 0.2s ease;
     background: white;
     color: var(--text-primary);
+}
+
+.deadline-select,
+.custom-date {
+    padding: 20px 24px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.2s ease;
+    background: white;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.deadline-select:hover,
+.custom-date:hover {
+    border-color: var(--accent);
+}
+
+.deadline-select:focus,
+.custom-date:focus {
+    border-color: var(--accent);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 #todoInput:focus {
@@ -267,6 +293,31 @@ header p {
 
 .todo-text:hover {
     color: var(--accent);
+}
+
+.todo-deadline {
+    font-size: 0.875rem;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: var(--hover);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.todo-deadline.overdue {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.todo-deadline.today {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.todo-deadline.upcoming {
+    background: #e8f5e9;
+    color: #2e7d32;
 }
 
 .todo-edit-input {

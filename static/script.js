@@ -23,6 +23,17 @@ class TodoApp {
                 this.setFilter(e.target.dataset.filter);
             });
         });
+
+        // Deadline select change
+        document.getElementById('deadlineSelect').addEventListener('change', (e) => {
+            const customDate = document.getElementById('customDate');
+            if (e.target.value === 'custom') {
+                customDate.style.display = 'block';
+                customDate.focus();
+            } else {
+                customDate.style.display = 'none';
+            }
+        });
     }
 
     async loadTodos() {
@@ -47,8 +58,19 @@ class TodoApp {
     async addTodo() {
         const input = document.getElementById('todoInput');
         const task = input.value.trim();
+        const deadlineSelect = document.getElementById('deadlineSelect');
+        const customDate = document.getElementById('customDate');
 
         if (!task) return;
+
+        let deadline = null;
+        const selectedDeadline = deadlineSelect.value;
+
+        if (selectedDeadline === 'custom' && customDate.value) {
+            deadline = customDate.value;
+        } else if (selectedDeadline) {
+            deadline = this.calculateDeadline(selectedDeadline);
+        }
 
         try {
             const response = await fetch('/api/todos', {
@@ -56,7 +78,7 @@ class TodoApp {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ task })
+                body: JSON.stringify({ task, deadline })
             });
 
             if (response.ok) {
@@ -65,6 +87,9 @@ class TodoApp {
                 this.renderTodos();
                 this.updateStats();
                 input.value = '';
+                deadlineSelect.value = '';
+                customDate.value = '';
+                customDate.style.display = 'none';
             } else {
                 const error = await response.json();
                 this.showError(error.error || 'Failed to add todo');
@@ -73,6 +98,33 @@ class TodoApp {
             this.showError('Error adding todo');
             console.error('Error:', error);
         }
+    }
+
+    calculateDeadline(type) {
+        const now = new Date();
+        let deadline = new Date();
+
+        switch (type) {
+            case 'today':
+                deadline.setHours(23, 59, 59, 999);
+                break;
+            case 'tomorrow':
+                deadline.setDate(now.getDate() + 1);
+                deadline.setHours(23, 59, 59, 999);
+                break;
+            case 'week':
+                const daysUntilSunday = 7 - now.getDay();
+                deadline.setDate(now.getDate() + daysUntilSunday);
+                deadline.setHours(23, 59, 59, 999);
+                break;
+            case 'month':
+                deadline.setMonth(now.getMonth() + 1);
+                deadline.setDate(0);
+                deadline.setHours(23, 59, 59, 999);
+                break;
+        }
+
+        return deadline.toISOString().split('T')[0];
     }
 
     async toggleTodo(id, event) {
@@ -252,19 +304,23 @@ class TodoApp {
             return;
         }
 
-        todoList.innerHTML = filteredTodos.map(todo => `
-            <div class="todo-item ${todo.completed ? 'completed' : ''}" data-id="${todo.id}">
-                <div class="todo-checkbox ${todo.completed ? 'checked' : ''}" onclick="todoApp.toggleTodo(${todo.id}, event)">
-                    ${todo.completed ? '<i class="fas fa-check"></i>' : ''}
+        todoList.innerHTML = filteredTodos.map(todo => {
+            const deadlineInfo = todo.deadline ? this.getDeadlineInfo(todo.deadline) : null;
+            return `
+                <div class="todo-item ${todo.completed ? 'completed' : ''}" data-id="${todo.id}">
+                    <div class="todo-checkbox ${todo.completed ? 'checked' : ''}" onclick="todoApp.toggleTodo(${todo.id}, event)">
+                        ${todo.completed ? '<i class="fas fa-check"></i>' : ''}
+                    </div>
+                    <div class="todo-text" onclick="todoApp.enableInlineEdit(${todo.id})">${this.escapeHtml(todo.task)}</div>
+                    ${deadlineInfo ? `<span class="todo-deadline ${deadlineInfo.class}">${deadlineInfo.text}</span>` : ''}
+                    <div class="todo-actions">
+                        <button class="todo-btn delete-btn" onclick="todoApp.deleteTodo(${todo.id}, event)" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="todo-text" onclick="todoApp.enableInlineEdit(${todo.id})">${this.escapeHtml(todo.task)}</div>
-                <div class="todo-actions">
-                    <button class="todo-btn delete-btn" onclick="todoApp.deleteTodo(${todo.id}, event)" title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     updateStats() {
@@ -310,6 +366,39 @@ class TodoApp {
         setTimeout(() => {
             notification.remove();
         }, 3000);
+    }
+
+    getDeadlineInfo(deadline) {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const deadlineDate = new Date(deadline);
+        deadlineDate.setHours(0, 0, 0, 0);
+
+        const diffTime = deadlineDate - now;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        let text = '';
+        let className = '';
+
+        if (diffDays < 0) {
+            text = `${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} overdue`;
+            className = 'overdue';
+        } else if (diffDays === 0) {
+            text = 'Due today';
+            className = 'today';
+        } else if (diffDays === 1) {
+            text = 'Due tomorrow';
+            className = 'upcoming';
+        } else if (diffDays <= 7) {
+            text = `Due in ${diffDays} days`;
+            className = 'upcoming';
+        } else {
+            const options = { month: 'short', day: 'numeric' };
+            text = deadlineDate.toLocaleDateString('en-US', options);
+            className = '';
+        }
+
+        return { text, class: className };
     }
 
     escapeHtml(text) {
